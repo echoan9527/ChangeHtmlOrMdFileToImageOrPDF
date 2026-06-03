@@ -7,15 +7,136 @@ import DOMPurify from 'dompurify';
 
 export type MarkdownTheme = 'github' | 'editorial' | 'nordic' | 'retro' | 'custom';
 
-export function generateHtmlFromMarkdown(mdText: string, theme: MarkdownTheme, customTemplate?: string): string {
+export function generateHtmlFromMarkdown(mdText: string, theme: MarkdownTheme, customTemplate?: string, enableToc: boolean = false): string {
   try {
     const rawHtml = marked.parse(mdText, { async: false }) as string;
     const cleanHtml = DOMPurify.sanitize(rawHtml);
     
+    // Create a temporary document to hold and modify the markdown body
+    const parser = new DOMParser();
+    const tempDoc = parser.parseFromString(cleanHtml, 'text/html');
+    
+    if (enableToc) {
+      const h2Elements = Array.from(tempDoc.querySelectorAll('h2'));
+      if (h2Elements.length > 0) {
+        const tocContainer = tempDoc.createElement('div');
+        tocContainer.className = 'toc-container';
+        // Theme-aware styles
+        let tocBg = '#f8fafc';
+        let tocBorder = '1px solid #e2e8f0';
+        let tocTitleColor = '#1e293b';
+        let tocTextColor = '#475569';
+        let tocIndexColor = '#2563eb';
+        
+        if (theme === 'github') {
+          tocBg = 'var(--color-canvas-subtle, #f6f8fa)';
+          tocBorder = '1px solid var(--color-border-default, #d0d7de)';
+          tocTitleColor = 'var(--color-fg-default, #24292f)';
+          tocTextColor = 'var(--color-fg-muted, #57606a)';
+          tocIndexColor = 'var(--color-accent-fg, #0969da)';
+        } else if (theme === 'retro') {
+          tocBg = '#121812';
+          tocBorder = '1px solid #39ff14';
+          tocTitleColor = '#39ff14';
+          tocTextColor = '#a3a3a3';
+          tocIndexColor = '#39ff14';
+        } else if (theme === 'nordic') {
+          tocBg = '#eceff4';
+          tocBorder = '1px solid #d8dee9';
+          tocTitleColor = '#2e3440';
+          tocTextColor = '#4c566a';
+          tocIndexColor = '#5e81ac';
+        } else if (theme === 'editorial') {
+          tocBg = '#faf9f6';
+          tocBorder = '1px solid #e5e5e5';
+          tocTitleColor = '#111111';
+          tocTextColor = '#555555';
+          tocIndexColor = '#8b0000';
+        } else if (theme === 'custom') {
+          tocBg = '#f8fafc';
+          tocBorder = '1px solid #e2e8f0';
+          tocTitleColor = '#1e293b';
+          tocTextColor = '#475569';
+          tocIndexColor = '#2563eb';
+        }
+
+        tocContainer.style.border = tocBorder;
+        tocContainer.style.borderRadius = '8px';
+        tocContainer.style.backgroundColor = tocBg;
+        tocContainer.style.padding = '24px';
+        tocContainer.style.marginBottom = '32px';
+        
+        const tocTitle = tempDoc.createElement('div');
+        tocTitle.innerHTML = '<span>📄</span> 目录';
+        tocTitle.style.fontSize = '1.125rem';
+        tocTitle.style.fontWeight = '700';
+        tocTitle.style.marginBottom = '20px';
+        tocTitle.style.color = tocTitleColor;
+        tocTitle.style.display = 'flex';
+        tocTitle.style.alignItems = 'center';
+        tocTitle.style.gap = '8px';
+        tocContainer.appendChild(tocTitle);
+        
+        const tocGrid = tempDoc.createElement('div');
+        tocGrid.style.display = 'grid';
+        tocGrid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+        tocGrid.style.gap = '20px 24px';
+        
+        h2Elements.forEach((h2, index) => {
+          if (!h2.id) {
+            h2.id = 'heading-' + index;
+          }
+          
+          const indexNum = String(index + 1).padStart(2, '0');
+          
+          const tocLink = tempDoc.createElement('a');
+          tocLink.href = '#' + h2.id;
+          tocLink.style.textDecoration = 'none';
+          tocLink.style.color = tocTextColor;
+          tocLink.style.fontSize = '0.95rem';
+          tocLink.style.display = 'flex';
+          tocLink.style.alignItems = 'baseline';
+          tocLink.style.gap = '10px';
+          
+          const indexSpan = tempDoc.createElement('span');
+          indexSpan.textContent = indexNum;
+          indexSpan.style.color = tocIndexColor;
+          indexSpan.style.fontWeight = '600';
+          indexSpan.style.fontSize = '1.05rem';
+          indexSpan.style.flexShrink = '0';
+          
+          const textSpan = tempDoc.createElement('span');
+          let cleanText = h2.textContent || '';
+          // Remove leading numbers, dots, and spaces (e.g., "1. ", "1、", "01. ", "2 ", "2.")
+          cleanText = cleanText.replace(/^\s*\d+[\.\/\-、\s]+/, '');
+          textSpan.textContent = cleanText;
+          textSpan.style.lineHeight = '1.5';
+          
+          tocLink.appendChild(indexSpan);
+          tocLink.appendChild(textSpan);
+          tocGrid.appendChild(tocLink);
+        });
+        
+        tocContainer.appendChild(tocGrid);
+        
+        const firstH1 = tempDoc.querySelector('h1');
+        if (firstH1) {
+            firstH1.style.paddingBottom = '16px';
+            firstH1.style.borderBottom = `3px solid ${tocIndexColor}`;
+            firstH1.style.marginBottom = '32px';
+            firstH1.insertAdjacentElement('afterend', tocContainer);
+        } else {
+            tempDoc.body.prepend(tocContainer);
+        }
+      }
+    }
+    
+    const finalContentHtml = tempDoc.body.innerHTML;
+    
     if (theme === 'custom' && customTemplate) {
       try {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(customTemplate, 'text/html');
+        const customParser = new DOMParser();
+        const doc = customParser.parseFromString(customTemplate, 'text/html');
 
         let targetContainer: Element | null = null;
         
@@ -67,9 +188,9 @@ export function generateHtmlFromMarkdown(mdText: string, theme: MarkdownTheme, c
         }
 
         if (targetContainer) {
-          targetContainer.innerHTML = cleanHtml;
+          targetContainer.innerHTML = finalContentHtml;
         } else {
-          doc.body.innerHTML = cleanHtml;
+          doc.body.innerHTML = finalContentHtml;
         }
 
         // Keep or dynamically inject code block styling to match the theme color
@@ -190,6 +311,14 @@ export function generateHtmlFromMarkdown(mdText: string, theme: MarkdownTheme, c
             border-radius: 4px !important;
             font-size: 0.85em !important;
           }
+          hr {
+            border: 0;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            margin: 2rem 0;
+          }
+          @media (prefers-color-scheme: dark) {
+            hr { border-top-color: rgba(255, 255, 255, 0.1); }
+          }
         `;
         doc.head.appendChild(styleFallback);
 
@@ -233,7 +362,7 @@ export function generateHtmlFromMarkdown(mdText: string, theme: MarkdownTheme, c
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
       `;
       styleContent = `
-        body { margin: 0; background-color: #fff; }
+        body { margin: 0; background-color: var(--color-canvas-default, #fff); }
         .markdown-body { box-sizing: border-box; min-width: 200px; max-width: 980px; margin: 0 auto; padding: 45px; }
         @media (max-width: 767px) { .markdown-body { padding: 15px; } }
       `;
@@ -463,7 +592,7 @@ export function generateHtmlFromMarkdown(mdText: string, theme: MarkdownTheme, c
 </head>
 <body>
     <article class="${bodyClass}">
-        ${cleanHtml}
+        ${finalContentHtml}
     </article>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script>
@@ -495,6 +624,7 @@ export default function App() {
   const [mdFileName, setMdFileName] = useState<string | null>(null);
   const [mdContent, setMdContent] = useState<string>('');
   const [mdTheme, setMdTheme] = useState<MarkdownTheme>('github');
+  const [mdEnableToc, setMdEnableToc] = useState<boolean>(true);
   const [customHtmlTemplate, setCustomHtmlTemplate] = useState<string>('');
   const [customTemplateName, setCustomTemplateName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -522,7 +652,7 @@ export default function App() {
     if (inputMode === 'url') return '';
     if (inputMode === 'html') return request.htmlContent;
     if (inputMode === 'md' && mdContent) {
-      return generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate);
+      return generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate, mdEnableToc);
     }
     return '';
   }, [inputMode, request.htmlContent, mdContent, mdTheme, customHtmlTemplate]);
@@ -627,7 +757,7 @@ export default function App() {
     
     if (inputMode === 'md') {
       try {
-        finalHtmlContent = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate);
+        finalHtmlContent = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate, mdEnableToc);
       } catch (err) {
         setError('Failed to parse Markdown.');
         setLoading(false);
@@ -913,7 +1043,7 @@ export default function App() {
                         </div>
 
                         {customTemplateName ? (
-                          <div className="flex items-center justify-between text-xs bg-white border border-gray-100 rounded-lg p-2 shadow-xs">
+                          <div className="flex items-center justify-between text-xs bg-white border border-gray-100 rounded-lg p-2 shadow-xs mt-2">
                             <div className="flex items-center gap-1.5 text-gray-600 truncate mr-2">
                               <FileCode className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                               <span className="font-medium text-gray-700 truncate">{customTemplateName}</span>
@@ -924,11 +1054,25 @@ export default function App() {
                             </span>
                           </div>
                         ) : (
-                          <p className="text-[11px] text-gray-400">
+                          <p className="text-[11px] text-gray-400 mt-2">
                             {/* @ts-ignore */}
                             {t.noCustomTemplateAttached || 'Upload an HTML sample to copy its style.'}
                           </p>
                         )}
+                      </div>
+
+                      {/* TOC Toggle */}
+                      <div className="flex items-center pt-2 border-t border-gray-100">
+                        <input
+                          id="markdown-toc"
+                          type="checkbox"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                          checked={mdEnableToc}
+                          onChange={(e) => setMdEnableToc(e.target.checked)}
+                        />
+                        <label htmlFor="markdown-toc" className="ml-2 block text-sm text-gray-900 cursor-pointer">
+                          在顶部自动生成目录 (Generate Table of Contents)
+                        </label>
                       </div>
                     </div>
 
@@ -943,7 +1087,7 @@ export default function App() {
                           type="button"
                           disabled={!mdContent.trim() || (mdTheme === 'custom' && !customHtmlTemplate)}
                           onClick={() => {
-                            const html = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate);
+                            const html = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate, mdEnableToc);
                             const blob = new Blob([html], { type: 'text/html' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
@@ -964,7 +1108,7 @@ export default function App() {
                           type="button"
                           disabled={!mdContent.trim() || (mdTheme === 'custom' && !customHtmlTemplate)}
                           onClick={() => {
-                            const html = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate);
+                            const html = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate, mdEnableToc);
                             setRequest(prev => ({ ...prev, htmlContent: html }));
                             setHtmlFileName(`converted-${mdTheme}.html`);
                             setInputMode('html');
@@ -1160,7 +1304,7 @@ export default function App() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading || (inputMode === 'url' ? !request.url : !request.htmlContent)}
+                disabled={loading || (inputMode === 'url' ? !request.url : inputMode === 'md' ? !mdContent : !request.htmlContent)}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                >
                 {loading ? (
