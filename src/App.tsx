@@ -106,7 +106,10 @@ export function generateHtmlFromMarkdown(mdText: string, theme: MarkdownTheme, c
           indexSpan.style.flexShrink = '0';
           
           const textSpan = tempDoc.createElement('span');
-          textSpan.textContent = h2.textContent;
+          let cleanText = h2.textContent || '';
+          // Remove leading numbers, dots, and spaces (e.g., "1. ", "1、", "01. ", "2 ", "2.")
+          cleanText = cleanText.replace(/^\s*\d+[\.\/\-、\s]+/, '');
+          textSpan.textContent = cleanText;
           textSpan.style.lineHeight = '1.5';
           
           tocLink.appendChild(indexSpan);
@@ -307,6 +310,14 @@ export function generateHtmlFromMarkdown(mdText: string, theme: MarkdownTheme, c
             padding: 0.2rem 0.4rem !important;
             border-radius: 4px !important;
             font-size: 0.85em !important;
+          }
+          hr {
+            border: 0;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            margin: 2rem 0;
+          }
+          @media (prefers-color-scheme: dark) {
+            hr { border-top-color: rgba(255, 255, 255, 0.1); }
           }
         `;
         doc.head.appendChild(styleFallback);
@@ -746,7 +757,7 @@ export default function App() {
     
     if (inputMode === 'md') {
       try {
-        finalHtmlContent = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate);
+        finalHtmlContent = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate, mdEnableToc);
       } catch (err) {
         setError('Failed to parse Markdown.');
         setLoading(false);
@@ -1076,7 +1087,7 @@ export default function App() {
                           type="button"
                           disabled={!mdContent.trim() || (mdTheme === 'custom' && !customHtmlTemplate)}
                           onClick={() => {
-                            const html = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate);
+                            const html = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate, mdEnableToc);
                             const blob = new Blob([html], { type: 'text/html' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
@@ -1097,7 +1108,7 @@ export default function App() {
                           type="button"
                           disabled={!mdContent.trim() || (mdTheme === 'custom' && !customHtmlTemplate)}
                           onClick={() => {
-                            const html = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate);
+                            const html = generateHtmlFromMarkdown(mdContent, mdTheme, customHtmlTemplate, mdEnableToc);
                             setRequest(prev => ({ ...prev, htmlContent: html }));
                             setHtmlFileName(`converted-${mdTheme}.html`);
                             setInputMode('html');
@@ -1293,7 +1304,7 @@ export default function App() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading || (inputMode === 'url' ? !request.url : !request.htmlContent)}
+                disabled={loading || (inputMode === 'url' ? !request.url : inputMode === 'md' ? !mdContent : !request.htmlContent)}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                >
                 {loading ? (
