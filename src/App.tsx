@@ -647,6 +647,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultSlices, setResultSlices] = useState<string[]>([]);
 
   const livePreviewHtml = useMemo(() => {
     if (inputMode === 'url') return '';
@@ -747,6 +748,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     setResultUrl(null);
+    setResultSlices([]);
     
     let submitUrl = request.url;
     if (inputMode === 'url' && submitUrl && !submitUrl.startsWith('http://') && !submitUrl.startsWith('https://')) {
@@ -787,9 +789,19 @@ export default function App() {
         throw new Error(errData?.error || `Server error: ${response.status}`);
       }
 
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      setResultUrl(objectUrl);
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        if (data.slices && data.slices.length > 0) {
+          setResultSlices(data.slices);
+        } else {
+          throw new Error('No slices returned from server');
+        }
+      } else {
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        setResultUrl(objectUrl);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -798,6 +810,18 @@ export default function App() {
   };
 
   const handleDownload = () => {
+    if (resultSlices.length > 0) {
+      resultSlices.forEach((sliceUrl, index) => {
+        const a = document.createElement('a');
+        a.href = sliceUrl;
+        a.download = `screenshot-p${index + 1}-${new Date().getTime()}.${request.format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+      return;
+    }
+    
     if (!resultUrl) return;
     const a = document.createElement('a');
     a.href = resultUrl;
@@ -1206,6 +1230,86 @@ export default function App() {
                 </div>
               )}
 
+              {/* Carousel Slice Mode */}
+              {request.format !== 'pdf' && (
+                <div className="bg-blue-50/50 p-4 border border-blue-100 rounded-xl space-y-3">
+                  <label className="flex flex-col cursor-pointer group">
+                    <div className="flex items-center gap-2">
+                       <input
+                          type="checkbox"
+                          checked={request.sliceMode || false}
+                          onChange={(e) => setRequest({ ...request, sliceMode: e.target.checked })}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                       <span className="text-sm font-semibold text-gray-800 group-hover:text-blue-700 transition-colors">{t.sliceMode}</span>
+                    </div>
+                    <span className="text-xs text-gray-500 mt-1 pl-6">
+                      {t.sliceModeDesc}
+                    </span>
+                  </label>
+                  
+                  {request.sliceMode && (
+                    <div className="pl-6 pt-2 space-y-4">
+                       <div>
+                         <label className="block text-xs font-medium text-gray-600 mb-1.5">{t.sliceRatio}</label>
+                         <div className="flex gap-2">
+                            {['3:4', '4:5', '1:1', '9:16', '16:9'].map(ratio => (
+                               <button
+                                  key={ratio}
+                                  type="button"
+                                  onClick={() => setRequest({ ...request, sliceAspectRatio: ratio as any })}
+                                  className={`px-2.5 py-1 text-xs border rounded-md font-medium transition-colors ${
+                                    (request.sliceAspectRatio || '4:5') === ratio
+                                      ? 'border-blue-500 bg-blue-100 text-blue-700'
+                                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                  }`}
+                               >
+                                  {ratio}
+                               </button>
+                            ))}
+                         </div>
+                       </div>
+                       
+                       <div>
+                         <label className="block text-xs font-medium text-gray-600 mb-1.5">{t.pdfMargin}</label>
+                         <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { value: '0px', label: t.pdfMarginNone },
+                              { value: '20px', label: t.pdfMarginStandard },
+                              { value: '40px', label: t.pdfMarginLarge }
+                            ].map((margin) => (
+                              <button
+                                key={margin.value}
+                                type="button"
+                                onClick={() => setRequest({ ...request, pdfMargin: margin.value })}
+                                className={`py-1.5 px-2 rounded-md border text-xs font-medium transition-colors ${
+                                  (request.pdfMargin || '0px') === margin.value
+                                    ? 'border-blue-500 bg-blue-100 text-blue-700'
+                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                              >
+                                {margin.label}
+                              </button>
+                            ))}
+                         </div>
+                       </div>
+                       
+                       <div>
+                         <label className="block text-xs font-medium text-gray-600 mb-1.5">{t.pdfBreakAvoidSelectors}</label>
+                         <input
+                           type="text"
+                           placeholder=".card, .article-section"
+                           value={request.pdfBreakAvoidSelectors || ''}
+                           onChange={(e) => setRequest({ ...request, pdfBreakAvoidSelectors: e.target.value })}
+                           className="block w-full px-3 py-2 border border-gray-200 rounded-md sm:text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                         />
+                         <p className="text-[11px] text-gray-400 mt-1">{t.pdfBreakAvoidSelectorsDesc}</p>
+                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* PDF Advanced Settings */}
               {request.format === 'pdf' && (
                 <div className="space-y-4">
@@ -1335,7 +1439,7 @@ export default function App() {
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{t.preview}</h2>
             <button
                onClick={handleDownload}
-               disabled={!resultUrl}
+               disabled={!resultUrl && resultSlices.length === 0}
                className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Download className="w-4 h-4" />
@@ -1344,14 +1448,14 @@ export default function App() {
           </div>
           
           <div className="flex-1 bg-gray-100/50 rounded-b-xl flex items-center justify-center p-4 overflow-auto relative">
-            {!resultUrl && !loading && !livePreviewHtml && (
+            {!resultUrl && resultSlices.length === 0 && !loading && !livePreviewHtml && (
               <div className="text-center text-gray-400">
                 <ImageIcon className="w-16 h-16 mx-auto mb-3 opacity-50" />
                 <p>{t.placeholderPreview}</p>
               </div>
             )}
 
-            {!resultUrl && !loading && livePreviewHtml && (
+            {!resultUrl && resultSlices.length === 0 && !loading && livePreviewHtml && (
               <div className="absolute inset-0 bg-white m-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                  <iframe 
                     srcDoc={livePreviewHtml}
@@ -1367,6 +1471,19 @@ export default function App() {
                   <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3" />
                   <p className="text-sm font-medium animate-pulse">{t.rendering}</p>
                   <p className="text-xs text-black/50 mt-2">{t.renderingWait}</p>
+               </div>
+            )}
+
+            {resultSlices.length > 0 && !loading && (
+               <div className="w-full self-start flex flex-col items-center gap-4 py-4">
+                 {resultSlices.map((sliceData, index) => (
+                   <img
+                     key={index}
+                     src={sliceData}
+                     alt={`Slice ${index + 1}`}
+                     className="max-w-full lg:max-w-md drop-shadow-md rounded-sm bg-white"
+                   />
+                 ))}
                </div>
             )}
 
