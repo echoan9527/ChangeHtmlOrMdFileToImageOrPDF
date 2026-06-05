@@ -9,4 +9,6 @@ export interface CaptureRequest {
   deviceScaleFactor?: number;
   pdfBreakAvoidSelectors?: string;
   pdfMargin?: string;
+  sliceMode?: boolean;
+  sliceAspectRatio?: '4:5' | '3:4' | '1:1' | '16:9' | '9:16';
 }

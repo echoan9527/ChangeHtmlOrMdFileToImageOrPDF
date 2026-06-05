@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import puppeteer from 'puppeteer';
+import sharp from 'sharp';
 import { createServer as createViteServer } from 'vite';
 
 async function startServer() {
@@ -10,7 +11,7 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
 
   app.post('/api/capture', async (req, res) => {
-    const { url, htmlContent, format = 'png', fullPage = true, selector, width = 1920, height = 1080, deviceScaleFactor = 1, pdfBreakAvoidSelectors, pdfMargin = '0px' } = req.body;
+    const { url, htmlContent, format = 'png', fullPage = true, selector, width = 1920, height = 1080, deviceScaleFactor = 1, pdfBreakAvoidSelectors, pdfMargin = '0px', sliceMode = false, sliceAspectRatio = '4:5' } = req.body;
 
     if (!url && !htmlContent) {
       return res.status(400).json({ error: 'URL or HTML Content is required' });
@@ -72,14 +73,114 @@ async function startServer() {
         });
         contentType = 'application/pdf';
       } else { // png or jpeg
-        if (selector) {
+        if (sliceMode) {
+          let clipRegion: { x: number, y: number, width: number, height: number } | null = null;
+          
+          if (selector) {
+            try {
+              await page.waitForSelector(selector, { timeout: 5000 });
+              const element = await page.$(selector);
+              if (!element) throw new Error(`Selector "${selector}" not found`);
+              const box = await element?.boundingBox();
+              if (!box) throw new Error(`Could not get bounding box for selector "${selector}"`);
+              clipRegion = box;
+            } catch (e: any) {
+              await browser.close();
+              return res.status(400).json({ error: e.message || `Could not capture selector ${selector}` });
+            }
+          } else if (!fullPage) {
+            clipRegion = { x: 0, y: 0, width, height };
+          } else {
+            const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+            clipRegion = { x: 0, y: 0, width, height: scrollHeight };
+          }
+
+          if (clipRegion) {
+            const cw = clipRegion.width;
+            let sh = cw;
+            if (sliceAspectRatio === '4:5') sh = Math.ceil(cw * (5 / 4));
+            else if (sliceAspectRatio === '3:4') sh = Math.ceil(cw * (4 / 3));
+            else if (sliceAspectRatio === '16:9') sh = Math.ceil(cw * (9 / 16));
+            else if (sliceAspectRatio === '9:16') sh = Math.ceil(cw * (16 / 9));
+            else if (sliceAspectRatio === '1:1') sh = cw;
+
+            const marginValue = parseInt(pdfMargin) || 0;
+
+            const breakpoints = await page.evaluate((startY, totalHeight, maxSliceHeight, avoidSelectors) => {
+                const cuts: {y: number, h: number}[] = [];
+                let currentY = startY;
+                const endY = startY + totalHeight;
+                
+                let selectors = 'h1, h2, h3, h4, h5, h6, p, img, svg, table, tr, pre, code, blockquote, figure, [class*="card"], [class*="box"], [class*="container"], [class*="item"]';
+                if (avoidSelectors) {
+                    selectors += ', ' + avoidSelectors;
+                }
+                
+                const elements = Array.from(document.querySelectorAll(selectors));
+                const rects = elements.map(el => {
+                    const r = el.getBoundingClientRect();
+                    return { top: r.top + window.scrollY, bottom: r.bottom + window.scrollY };
+                })
+                .filter(r => r.bottom - r.top > 0)
+                .sort((a, b) => a.top - b.top);
+                
+                while (currentY < endY) {
+                    let proposedCutY = currentY + maxSliceHeight;
+                    
+                    if (proposedCutY >= endY) {
+                        const h = endY - currentY;
+                        if (h > 50 || cuts.length === 0) cuts.push({ y: currentY, h });
+                        break;
+                    }
+                    
+                    let adjustedCutY = proposedCutY;
+                    for (const rect of rects) {
+                        if (rect.top > currentY && rect.top < proposedCutY && rect.bottom > proposedCutY) {
+                             if (rect.top - currentY > Math.min(100, maxSliceHeight * 0.2)) {
+                                 adjustedCutY = rect.top;
+                                 break;
+                             }
+                        }
+                    }
+                    
+                    cuts.push({ y: currentY, h: adjustedCutY - currentY });
+                    currentY = adjustedCutY;
+                }
+                return cuts;
+            }, clipRegion.y, clipRegion.height, sh, pdfBreakAvoidSelectors);
+
+            const slices: string[] = [];
+            for (const cut of breakpoints) {
+               let buffer = await page.screenshot({
+                 type: format as any,
+                 clip: { x: clipRegion.x, y: cut.y, width: cw, height: cut.h },
+               });
+               
+               if (marginValue > 0) {
+                 buffer = await sharp(buffer)
+                    .extend({
+                        top: marginValue,
+                        bottom: marginValue,
+                        left: marginValue,
+                        right: marginValue,
+                        background: { r: 255, g: 255, b: 255, alpha: 1 }
+                    })
+                    .toBuffer();
+               }
+               
+               slices.push(`data:image/${format};base64,${Buffer.from(buffer).toString('base64')}`);
+            }
+            await browser.close();
+            return res.json({ slices });
+          }
+        } else if (selector) {
           try {
             await page.waitForSelector(selector, { timeout: 5000 });
             const element = await page.$(selector);
             if (!element) {
               throw new Error(`Selector "${selector}" not found`);
             }
-            resultBuffer = await element.screenshot({ type: format as any });
+            resultBuffer = await Object(element).screenshot({ type: format as any });
           } catch (e: any) {
              return res.status(400).json({ error: e.message || `Could not capture selector ${selector}` });
           }
