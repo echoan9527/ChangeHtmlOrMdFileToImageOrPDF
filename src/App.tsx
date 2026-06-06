@@ -1405,6 +1405,131 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Watermark / Signature section */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden mt-6">
+                <div 
+                  className={`px-4 py-3 cursor-pointer flex justify-between items-center bg-gray-50 hover:bg-gray-100 transition-colors ${request.watermark?.enabled ? 'border-b border-gray-200' : ''}`}
+                  onClick={() => setRequest(r => ({...r, watermark: { ...r.watermark, enabled: !r.watermark?.enabled, text: r.watermark?.text || '', placement: 'header' } }))}
+                >
+                  <div>
+                    {/* @ts-ignore */}
+                    <div className="text-sm font-semibold text-gray-900">{t.watermarkSettings || 'Personalized Signature'}</div>
+                    {/* @ts-ignore */}
+                    <div className="text-xs text-gray-500 mt-0.5">{t.watermarkDesc || 'Add a signature or QR code to protect your original work and bring traffic.'}</div>
+                  </div>
+                  <div className={`w-10 h-5 rounded-full relative transition-colors ${request.watermark?.enabled ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${request.watermark?.enabled ? 'left-[22px]' : 'left-0.5'}`} />
+                  </div>
+                </div>
+
+                {request.watermark?.enabled && (
+                  <div className="p-4 bg-white space-y-4">
+                     <div className="grid grid-cols-2 gap-4">
+                       <div>
+                         {/* @ts-ignore */}
+                         <label className="block text-xs font-medium text-gray-700 mb-1.5">{t.watermarkName || 'Signature'}</label>
+                         <input 
+                           type="text"
+                           placeholder="@YourName"
+                           value={request.watermark.text}
+                           onChange={(e) => setRequest(r => ({...r, watermark: { ...r.watermark!, text: e.target.value }}))}
+                           className="block w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                         />
+                       </div>
+                       <div>
+                         {/* @ts-ignore */}
+                         <label className="block text-xs font-medium text-gray-700 mb-1.5">{t.watermarkSubText || 'Subtext'}</label>
+                         <input 
+                           type="text"
+                           placeholder="Protected Original Content"
+                           value={request.watermark.subText || ''}
+                           onChange={(e) => setRequest(r => ({...r, watermark: { ...r.watermark!, subText: e.target.value }}))}
+                           className="block w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                         />
+                       </div>
+                     </div>
+                     
+                     <div className="grid grid-cols-2 gap-4">
+                       <div>
+                         {/* @ts-ignore */}
+                         <label className="block text-xs font-medium text-gray-700 mb-1.5">{t.fileUploadAvatar || 'Avatar'}</label>
+                         <div 
+                           onClick={() => {
+                             const input = document.createElement('input');
+                             input.type = 'file';
+                             input.accept = 'image/*';
+                             input.onchange = (e: any) => {
+                               const file = e.target.files[0];
+                               if (file) {
+                                 const reader = new FileReader();
+                                 reader.onload = (ev) => {
+                                   setRequest(r => ({...r, watermark: { ...r.watermark!, avatar: ev.target?.result as string }}));
+                                 };
+                                 reader.readAsDataURL(file);
+                               }
+                             };
+                             input.click();
+                           }}
+                           className="border border-dashed border-gray-300 rounded-lg h-24 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+                         >
+                           {request.watermark.avatar ? (
+                             <img src={request.watermark.avatar} className="w-12 h-12 rounded-full object-cover shadow-sm" />
+                           ) : (
+                             <>
+                               <ImageIcon className="w-5 h-5 text-gray-400 mb-1" />
+                               <span className="text-xs text-gray-500">Upload Logo</span>
+                             </>
+                           )}
+                         </div>
+                         {request.watermark.avatar && (
+                           <div className="text-center mt-1">
+                             <button type="button" onClick={() => setRequest(r => ({...r, watermark: { ...r.watermark!, avatar: undefined }}))} className="text-[10px] text-red-500 hover:underline">Remove</button>
+                           </div>
+                         )}
+                       </div>
+                       
+                       <div>
+                         {/* @ts-ignore */}
+                         <label className="block text-xs font-medium text-gray-700 mb-1.5">{t.watermarkQrCode || 'QR Code'}</label>
+                         <div 
+                           onClick={() => {
+                             const input = document.createElement('input');
+                             input.type = 'file';
+                             input.accept = 'image/*';
+                             input.onchange = (e: any) => {
+                               const file = e.target.files[0];
+                               if (file) {
+                                 const reader = new FileReader();
+                                 reader.onload = (ev) => {
+                                   setRequest(r => ({...r, watermark: { ...r.watermark!, qrCode: ev.target?.result as string }}));
+                                 };
+                                 reader.readAsDataURL(file);
+                               }
+                             };
+                             input.click();
+                           }}
+                           className="border border-dashed border-gray-300 rounded-lg h-24 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+                         >
+                           {request.watermark.qrCode ? (
+                             <img src={request.watermark.qrCode} className="w-12 h-12 rounded border border-gray-100 object-cover shadow-sm" />
+                           ) : (
+                             <>
+                               <ImageIcon className="w-5 h-5 text-gray-400 mb-1" />
+                               <span className="text-xs text-gray-500">Upload QR</span>
+                             </>
+                           )}
+                         </div>
+                         {request.watermark.qrCode && (
+                           <div className="text-center mt-1">
+                             <button type="button" onClick={() => setRequest(r => ({...r, watermark: { ...r.watermark!, qrCode: undefined }}))} className="text-[10px] text-red-500 hover:underline">Remove</button>
+                           </div>
+                         )}
+                       </div>
+                     </div>
+                  </div>
+                )}
+              </div>
+
               {/* Submit Button */}
               <button
                 type="submit"

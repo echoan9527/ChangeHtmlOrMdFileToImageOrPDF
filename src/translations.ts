@@ -2,8 +2,8 @@ export type Language = 'zh' | 'en';
 
 export const translations = {
   zh: {
-    title: '网页截图专业版',
-    subtitle: '将任何网页或HTML转换为高分辨率图片或PDF。',
+    title: '网页生图专业版',
+    subtitle: '将网页链接、Markdown 或 HTML 优雅地渲染为高清长图、卡片或者 PDF。',
     liveUrl: '实时网页',
     localHtml: '本地HTML',
     markdown: 'Markdown',
@@ -63,6 +63,17 @@ export const translations = {
     customTemplateAttached: '已装载样式模型：',
     clickToUploadTemplate: '装载 HTML 样式参照样本',
     noCustomTemplateAttached: '请上传准备参考风格的 HTML 样式文件',
+    watermarkSettings: '个性化水印 / 署名',
+    fileUploadAvatar: '上传头像 / LOGO',
+    watermarkName: '署名 / 昵称',
+    watermarkSubText: '个性签名',
+    uploadQRCode: '上传二维码',
+    watermarkQrCode: '二维码 / 附加图',
+    watermarkPosition: '展示方式',
+    watermarkFloating: '悬浮 (右下角)',
+    watermarkFooter: '底部页脚区',
+    watermarkHeader: '顶部标题下',
+    watermarkDesc: '为截取的图片添加个人专属署名及二维码引流信息',
   },
   en: {
     title: 'Web Screenshot Pro',
@@ -125,6 +136,17 @@ export const translations = {
     uploadCustomTemplate: 'Upload Style HTML Sample',
     customTemplateAttached: 'Loaded template:',
     clickToUploadTemplate: 'Upload design stylesheet / HTML model',
-    noCustomTemplateAttached: 'Upload an HTML file to act as the style guide'
+    noCustomTemplateAttached: 'Upload an HTML file to act as the style guide',
+    watermarkSettings: 'Personalized Signature',
+    fileUploadAvatar: 'Upload Avatar / LOGO',
+    watermarkName: 'Signature / Nickname',
+    watermarkSubText: 'Subtext / Disclaimer',
+    uploadQRCode: 'Upload QR Code',
+    watermarkQrCode: 'QR Code / Extra Badge',
+    watermarkPosition: 'Placement',
+    watermarkFloating: 'Floating (Bottom Right)',
+    watermarkFooter: 'Footer Area (Bottom)',
+    watermarkHeader: 'Header Area (Top)',
+    watermarkDesc: 'Add a personalized signature, avatar, and QR code to the capture result for branding and traffic.',
   }
 };
