@@ -11,4 +11,11 @@ export interface CaptureRequest {
   pdfMargin?: string;
   sliceMode?: boolean;
   sliceAspectRatio?: '4:5' | '3:4' | '1:1' | '16:9' | '9:16';
+  watermark?: {
+    enabled: boolean;
+    text: string;
+    avatar?: string;
+    qrCode?: string;
+    placement: 'floating' | 'footer' | 'header';
+  };
 }
