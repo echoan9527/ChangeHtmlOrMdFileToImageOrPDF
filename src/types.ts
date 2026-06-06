@@ -14,6 +14,7 @@ export interface CaptureRequest {
   watermark?: {
     enabled: boolean;
     text: string;
+    subText?: string;
     avatar?: string;
     qrCode?: string;
     placement: 'floating' | 'footer' | 'header';

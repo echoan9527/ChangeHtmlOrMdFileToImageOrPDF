@@ -1436,6 +1436,17 @@ export default function App() {
                            className="block w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                          />
                        </div>
+                       <div>
+                         {/* @ts-ignore */}
+                         <label className="block text-xs font-medium text-gray-700 mb-1.5">{t.watermarkSubText || 'Subtext'}</label>
+                         <input 
+                           type="text"
+                           placeholder="Protected Original Content"
+                           value={request.watermark.subText || ''}
+                           onChange={(e) => setRequest(r => ({...r, watermark: { ...r.watermark!, subText: e.target.value }}))}
+                           className="block w-full px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                         />
+                       </div>
                      </div>
                      
                      <div className="grid grid-cols-2 gap-4">

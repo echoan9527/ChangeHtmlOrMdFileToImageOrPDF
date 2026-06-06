@@ -57,7 +57,8 @@ async function startServer() {
              if (wm.text) {
                 innerHtml += `<span style="font-size: 16px; font-weight: 600; color: #111827; letter-spacing: -0.01em; line-height: 1.2;">${wm.text}</span>`;
              }
-             innerHtml += `<span style="font-size: 13px; color: #6b7280; margin-top: 2px; font-weight: 500;">Protected Original Content</span>`;
+             const subText = wm.subText || 'Protected Original Content';
+             innerHtml += `<span style="font-size: 13px; color: #6b7280; margin-top: 2px; font-weight: 500;">${subText}</span>`;
              innerHtml += `</div>`;
           }
           

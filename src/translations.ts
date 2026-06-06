@@ -2,8 +2,8 @@ export type Language = 'zh' | 'en';
 
 export const translations = {
   zh: {
-    title: '网页截图专业版',
-    subtitle: '将任何网页或HTML转换为高分辨率图片或PDF。',
+    title: '网页生图专业版',
+    subtitle: '将网页链接、Markdown 或 HTML 优雅地渲染为高清长图、卡片或者 PDF。',
     liveUrl: '实时网页',
     localHtml: '本地HTML',
     markdown: 'Markdown',
@@ -66,6 +66,7 @@ export const translations = {
     watermarkSettings: '个性化水印 / 署名',
     fileUploadAvatar: '上传头像 / LOGO',
     watermarkName: '署名 / 昵称',
+    watermarkSubText: '个性签名',
     uploadQRCode: '上传二维码',
     watermarkQrCode: '二维码 / 附加图',
     watermarkPosition: '展示方式',
@@ -139,6 +140,7 @@ export const translations = {
     watermarkSettings: 'Personalized Signature',
     fileUploadAvatar: 'Upload Avatar / LOGO',
     watermarkName: 'Signature / Nickname',
+    watermarkSubText: 'Subtext / Disclaimer',
     uploadQRCode: 'Upload QR Code',
     watermarkQrCode: 'QR Code / Extra Badge',
     watermarkPosition: 'Placement',
