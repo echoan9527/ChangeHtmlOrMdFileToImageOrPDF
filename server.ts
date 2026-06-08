@@ -10,7 +10,7 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
 
   app.post('/api/capture', async (req, res) => {
-    const { url, htmlContent, format = 'png', fullPage = true, selector, width = 1920, height = 1080, deviceScaleFactor = 1 } = req.body;
+    const { url, htmlContent, format = 'png', fullPage = true, selector, width = 1920, height = 1080, deviceScaleFactor = 1, pdfBreakAvoidSelectors, pdfMargin = '0px' } = req.body;
 
     if (!url && !htmlContent) {
       return res.status(400).json({ error: 'URL or HTML Content is required' });
@@ -26,7 +26,7 @@ async function startServer() {
       await page.setViewport({ width, height: height || 1080, deviceScaleFactor });
 
       if (htmlContent) {
-        await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 30000 });
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0' as any, timeout: 30000 });
       } else {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
       }
@@ -35,9 +35,40 @@ async function startServer() {
       let contentType;
 
       if (format === 'pdf') {
+        // Auto-inject print styles to prevent page breaks inside elements
+        let printStyleContent = `
+            @media print {
+              h1, h2, h3, h4, h5, h6,
+              p, img, svg, table, tr, th, td,
+              pre, code, blockquote, li, figure,
+              [class*="card"], [class*="box"], [class*="panel"], [class*="alert"], [class*="container"], [class*="item"],
+              [style*="background"], [class*="bg-"] {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+            }
+          `;
+          
+        if (pdfBreakAvoidSelectors) {
+           printStyleContent += `
+             @media print {
+               ${pdfBreakAvoidSelectors} {
+                 page-break-inside: avoid !important;
+                 break-inside: avoid !important;
+                 display: block !important;
+               }
+             }
+           `;
+        }
+
+        await page.addStyleTag({
+          content: printStyleContent
+        });
+
         resultBuffer = await page.pdf({
           format: 'A4',
           printBackground: true,
+          margin: { top: pdfMargin, bottom: pdfMargin, left: pdfMargin, right: pdfMargin }
         });
         contentType = 'application/pdf';
       } else { // png or jpeg
@@ -48,16 +79,12 @@ async function startServer() {
             if (!element) {
               throw new Error(`Selector "${selector}" not found`);
             }
-            const screenshotOptions: any = { type: format as any };
-            if (format === 'jpeg') screenshotOptions.quality = 100;
-            resultBuffer = await element.screenshot(screenshotOptions);
+            resultBuffer = await element.screenshot({ type: format as any });
           } catch (e: any) {
              return res.status(400).json({ error: e.message || `Could not capture selector ${selector}` });
           }
         } else {
-          const screenshotOptions: any = { type: format as any, fullPage };
-          if (format === 'jpeg') screenshotOptions.quality = 100;
-          resultBuffer = await page.screenshot(screenshotOptions);
+          resultBuffer = await page.screenshot({ type: format as any, fullPage });
         }
         contentType = `image/${format}`;
       }
@@ -87,7 +114,8 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`(Also accessible on your network at http://<your-ip>:${PORT} and locally on http://127.0.0.1:${PORT})`);
   });
 }
 
