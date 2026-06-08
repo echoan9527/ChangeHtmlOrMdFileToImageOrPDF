@@ -7,6 +7,4 @@ export interface CaptureRequest {
   width: number;
   height: number;
   deviceScaleFactor?: number;
-  pdfBreakAvoidSelectors?: string;
-  pdfMargin?: string;
 }
